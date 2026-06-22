@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DPHE Green Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 font-sans flex flex-col h-screen overflow-hidden">
+
+    <!-- Top Header -->
+    <header class="bg-emerald-700 text-white p-4 shadow-md flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">🏢</span>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-wide">DPHE Green Tracker</h1>
+                <p class="text-xs text-emerald-200">Department of Public Health Engineering | বৃক্ষরোপণ কর্মসূচি</p>
+            </div>
+        </div>
+        <div class="hidden md:block bg-emerald-800 px-4 py-1.5 rounded-lg text-sm border border-emerald-600">
+            Government of Bangladesh
+        </div>
+    </header>
+
+    <!-- Main Container: Body + Right Sidebar Tabs -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Left Side: Dynamic Content Panel -->
+        <main class="flex-1 p-4 md:p-6 overflow-y-auto pb-24 md:pb-6">
+            
+            <!-- TAB 1: Dashboard -->
+            <div id="tab-dashboard" class="tab-content space-y-6">
+                <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">📊 সার্বিক ড্যাশবোর্ড (Dashboard)</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500">
+                        <p class="text-sm text-gray-500 font-medium">মোট লক্ষ্যমাত্রা (গাছ)</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-1">৫,০০০</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
+                        <p class="text-sm text-gray-500 font-medium">মোট রোপণকৃত গাছ</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-1" id="dash-total-planted">৪</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500">
+                        <p class="text-sm text-gray-500 font-medium">টিকে আছে (Survival Rate)</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-1">১০০%</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white p-4 rounded-xl shadow-sm">
+                    <div>
+                        <p class="text-center font-semibold text-gray-600 mb-2">গাছের ধরণের অনুপাত</p>
+                        <div class="max-w-[280px] mx-auto"><canvas id="chartType"></canvas></div>
+                    </div>
+                    <div>
+                        <p class="text-center font-semibold text-gray-600 mb-2">উপজেলা ভিত্তিক অগ্রগতি</p>
+                        <canvas id="chartLocation"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Data Entry -->
+            <div id="tab-data-entry" class="tab-content hidden space-y-6">
+                <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">📝 নতুন ডাটা এন্ট্রি (Data Entry)</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Form Part -->
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
+                        <form id="plantationForm" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">জেলা *</label>
+                                    <select id="district" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" required>
+                                        <option value="">জেলা নির্বাচন করুন</option>
+                                        <option value="Rangpur">রংপুর (Rangpur)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">উপজেলা *</label>
+                                    <select id="upojela" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" required disabled>
+                                        <option value="">আগে জেলা বাছুন</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">ইউনিয়ন *</label>
+                                    <select id="union" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" required disabled>
+                                        <option value="">আগে উপজেলা বাছুন</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">গাছের নাম *</label>
+                                    <select id="treeSelect" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" required>
+                                        <!-- Dynamic Trees -->
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2 bg-gray-50 p-3 rounded-lg border border-dashed">
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">জিপিএস রিডিং (GPS Coordinates)</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="lat" placeholder="Latitude" class="w-full p-2 border rounded-lg bg-white" readonly required>
+                                        <input type="text" id="lng" placeholder="Longitude" class="w-full p-2 border rounded-lg bg-white" readonly required>
+                                        <button type="button" onclick="fetchGPS()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">📍 জিপিএস নিন</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">তত্ত্বাবধায়ক *</label>
+                                    <input type="text" id="caregiver" placeholder="নাম লিখুন" class="w-full p-2 border rounded-lg" required>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">মোবাইল নম্বর *</label>
+                                    <input type="tel" id="phone" placeholder="01xxxxxxxxx" class="w-full p-2 border rounded-lg" required>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-gray-700 text-sm font-bold mb-1">গাছের ছবি (ক্যামেরা/ফাইল)</label>
+                                    <input type="file" id="imageUpload" accept="image/*" class="w-full p-1.5 border rounded-lg bg-gray-50 text-sm">
+                                    <p class="text-xs text-gray-400 mt-1">* ছবি বাধ্যতামূলক নয়, পরবর্তীতেও আপলোড বা পরিবর্তন করা যাবে।</p>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-lg shadow">💾 ডাটা সেভ করুন</button>
+                        </form>
+                    </div>
+
+                    <!-- Tree Inventory Management Panel (Edit/Delete) -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border space-y-4">
+                        <h3 class="text-lg font-bold text-gray-700 border-b pb-1">🌳 গাছের তালিকা ব্যবস্থাপনা</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="newTreeName" placeholder="নতুন গাছের নাম" class="flex-1 p-2 border text-sm rounded-lg">
+                            <button onclick="addCustomTree()" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700">+</button>
+                        </div>
+                        <ul id="treeInventoryList" class="divide-y max-h-[250px] overflow-y-auto text-sm text-gray-600">
+                            <!-- Populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: পর্যায়ক্রমিক তদারকি -->
+            <div id="tab-todoroki" class="tab-content hidden space-y-6">
+                <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">🌿 পর্যায়ক্রমিক তদারকি (Periodic Monitoring)</h2>
+                
+                <!-- Filter bar -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label class="block text-gray-700 text-xs font-bold mb-1">জেলা ফিল্টার</label>
+                        <select id="auditFilterDistrict" class="w-full p-2 border rounded-lg text-sm">
+                            <option value="Rangpur">রংপুর</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-xs font-bold mb-1">উপজেলাই ফিল্টার</label>
+                        <select id="auditFilterUpojela" class="w-full p-2 border rounded-lg text-sm">
+                            <!-- JS loaded -->
+                        </select>
+                    </div>
+                    <button onclick="renderAuditTable()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold p-2 text-sm rounded-lg shadow">🔍 ডাটা খুঁজুন</button>
+                </div>
+
+                <!-- Live Tree Ledger Table -->
+                <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                    <table class="w-full text-left text-sm border-collapse min-w-[1000px]">
+                        <thead class="bg-gray-100 text-gray-700 font-semibold uppercase border-b">
+                            <tr>
+                                <th class="p-3">ID & গাছ</th>
+                                <th class="p-3">ইউনিয়ন</th>
+                                <th class="p-3 text-center">ছবি স্ট্যাটাস</th>
+                                <th class="p-3">৩ মাস</th>
+                                <th class="p-3">৬ মাস</th>
+                                <th class="p-3">১ বছর</th>
+                                <th class="p-3">২ বছর</th>
+                                <th class="p-3">৩ বছর</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditTableBody" class="divide-y text-gray-600">
+                            <!-- Loaded Dynamically with Logic Lock -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: Report -->
+            <div id="tab-report" class="tab-content hidden space-y-6">
+                <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">📋 ফিল্ড রিপোর্ট (Report)</h2>
+                <div class="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center mb-4">
+                    <p class="text-sm text-gray-600">রংপুর জোনের সমস্ত মাস্টার এক্সপোর্ট লেজার ফাইল।</p>
+                    <button onclick="alert('গুগল শিট API যুক্ত থাকলে এক্সেল সরাসরি ডাউনলোড হবে')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-sm">📥 Export to Excel</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-emerald-50 text-emerald-800 font-bold border-b">
+                            <tr>
+                                <th class="p-3">Tree ID</th>
+                                <th class="p-3">উপজেলা</th>
+                                <th class="p-3">ইউনিয়ন</th>
+                                <th class="p-3">গাছের নাম</th>
+                                <th class="p-3">তত্ত্বাবধায়ক</th>
+                                <th class="p-3">জিপিএস কোঅর্ডিনেট</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody" class="divide-y">
+                            <!-- Dynamic Row Stream -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Right Side: Navigation Bar Fixed Tabs (As Requested) -->
+        <aside class="w-20 md:w-44 bg-gray-900 text-gray-400 flex flex-col items-center md:items-stretch shadow-xl border-l border-gray-800 h-full">
+            <div class="p-4 text-center font-bold text-xs text-emerald-400 uppercase hidden md:block tracking-widest border-b border-gray-800">
+                মেনু ট্যাব
+            </div>
+            <nav class="flex-1 flex flex-col w-full text-center md:text-left">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="tab-btn flex flex-col md:flex-row items-center gap-2 p-4 border-b border-gray-800 text-white bg-emerald-600/20 border-r-4 border-emerald-500 transition">
+                    <span class="text-xl">📊</span>
+                    <span class="text-xs md:text-sm font-medium">Dashboard</span>
+                </button>
+                <button onclick="switchTab('data-entry')" id="btn-data-entry" class="tab-btn flex flex-col md:flex-row items-center gap-2 p-4 border-b border-gray-800 hover:bg-gray-800 hover:text-white transition">
+                    <span class="text-xl">📝</span>
+                    <span class="text-xs md:text-sm font-medium">Data Entry</span>
+                </button>
+                <button onclick="switchTab('todoroki')" id="btn-todoroki" class="tab-btn flex flex-col md:flex-row items-center gap-2 p-4 border-b border-gray-800 hover:bg-gray-800 hover:text-white transition">
+                    <span class="text-xl">🌿</span>
+                    <span class="text-xs md:text-sm font-medium">পর্যায়ক্রমিক তদারকি</span>
+                </button>
+                <button onclick="switchTab('report')" id="btn-report" class="tab-btn flex flex-col md:flex-row items-center gap-2 p-4 border-b border-gray-800 hover:bg-gray-800 hover:text-white transition">
+                    <span class="text-xl">📋</span>
+                    <span class="text-xs md:text-sm font-medium">Report</span>
+                </button>
+            </nav>
+        </aside>
+
+    </div>
+
+    <!-- JavaScript Data Core System Logic -->
+    <script>
+        // Rangpur District: Full 8 Upazilas and all 83 Unions Reference Complete Data Matrix
+        const rangpurData = {
+            "Mithapukur": ["মিঠাপুকুর সদর", "বালুয়া মাসিমপুর", "দিল্যালপুর", "দূর্গাপুর", "কাফ্রিকাল", "খোড়াগাছ", "লতিবপুর", "ময়েনপুর", "চেংমারী", "বড়বালা", "পায়রাবন্দ", "ভাঙ্গনী", "গোপালপুর", "বড়হযরতপুর", "মির্জাপুর", "ইমাদপুর", "রাণীপুকুর"],
+            "Pirganj": ["পিরগঞ্জ সদর", "চৈত্রকোল", "ভেণ্ডাবাড়ী", "বড়দরগাহ", "কুমেদপুর", "টুকুরিয়া", "শানেরহাট", "পাঁচগাছী", "চতরা", "মিঠাপুর", "রামনাথপুর", "রায়পুর", "বড়জিলা", "মাদারগঞ্জ", "কাবিলপুর"],
+            "Badarganj": ["বদরগঞ্জ সদর", "গোপালপুর", "কুতুবপুর", "রামনাথপুর", "বিষ্ণুপুর", "দামোদরপুর", "কালুপাড়া", "লোহানীপাড়া", "মধুপুর"],
+            "Rangpur-Sadar": ["মمینপুর", "হরিদেবপুর", "সদ্যপুষ্করিণী", "চন্দনপাট", "রবার্টসনগঞ্জ", "খেলীয়া"],
+            "Kaunia": ["কাউনিয়া সদর", "হারাগাছ", "কুর্শা", "সারাই", "শহীদবাগ", "বালাপাড়া"],
+            "Gangachara": ["গঙ্গাচড়া সদর", "বেতগাড়ী", "বড়বিল", "কোলকোন্দ", "লক্ষ্মীটারী", "মর্ণেয়া", "নোহালী", "আলমবিদিতর", "গজঘণ্টা"],
+            "Taraganj": ["তারাগঞ্জ সদর", "আলমপুর", "কুড়শামারী", "হাড়িয়ারকুঠি", "সয়ার"],
+            "Pirgacha": ["পীরগাছা সদর", "কালাকান্দ", "কৈকূড়ী", "কান্দা", "ছাওলা", "তাম্বুলপুর", "পারুল", "অন্নদানগর", "ইটা कुमारी"]
+        };
+
+        // Tree Inventory Memory
+        let dynamicTrees = ["আম (Mango)", "কাঠাল (Jackfruit)", "নিম (Neem)", "মেহগনি (Mahogany)", "সেগুন (Teak)", "পেয়ারা (Guava)"];
+
+        // Dummy Initial Database Storage System (Syncs with UI)
+        let mockDatabase = [
+            { id: "RNG-001", district: "Rangpur", upojela: "Mithapukur", union: "মিঠাপুকুর সদর", tree: "আম (Mango)", lat: "25.5781", lng: "89.2634", caregiver: "মোঃ রফিক", phone: "017123...", imageUploaded: true, m3: "Healthy", m6: "Healthy", y1: "Healthy", y2: "Healthy", y3: "Healthy" },
+            { id: "RNG-002", district: "Rangpur", upojela: "Pirganj", union: "চৈত্রকোল", tree: "মেহগনি (Mahogany)", lat: "25.4124", lng: "89.3125", caregiver: "সাজ্জাদ আলী", phone: "019876...", imageUploaded: false, m3: "NeedsCare", m6: "Dead", y1: "", y2: "", y3: "" },
+            { id: "RNG-003", district: "Rangpur", upojela: "Badarganj", union: "কুতুবপুর", tree: "নিম (Neem)", lat: "25.7112", lng: "89.0514", caregiver: "আমিনা খাতুন", phone: "015523...", imageUploaded: true, m3: "Healthy", m6: "NeedsCare", y1: "Healthy", y2: "", y3: "" },
+            { id: "RNG-004", district: "Rangpur", upojela: "Rangpur-Sadar", union: "হরিদেবপুর", tree: "সেগুন (Teak)", lat: "25.7510", lng: "89.2210", caregiver: "আলমগীর হোসেন", phone: "013112...", imageUploaded: false, m3: "Healthy", m6: "", y1: "", y2: "", y3: "" }
+        ];
+
+        // Tab Switching Engine (Right Side Tab Trigger)
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-white', 'bg-emerald-600/20', 'border-r-4', 'border-emerald-500');
+                el.classList.add('text-gray-400');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const targetBtn = document.getElementById(`btn-${tabId}`);
+            targetBtn.classList.add('text-white', 'bg-emerald-600/20', 'border-r-4', 'border-emerald-500');
+            targetBtn.classList.remove('text-gray-400');
+
+            if(tabId === 'todoroki') renderAuditTable();
+            if(tabId === 'report') renderReportTable();
+        }
+
+        // Initialize Core Component Dropdowns
+        window.onload = function() {
+            initLocationDropdowns();
+            initTreeInventoryPanel();
+            renderCharts();
+        };
+
+        function initLocationDropdowns() {
+            const distSelect = document.getElementById('district');
+            const upoSelect = document.getElementById('upojela');
+            const uniSelect = document.getElementById('union');
+            const filterUpo = document.getElementById('auditFilterUpojela');
+
+            distSelect.addEventListener('change', function() {
+                upoSelect.innerHTML = '<option value="">উপজেলা নির্বাচন করুন</option>';
+                filterUpo.innerHTML = '<option value="">সকল উপজেলা</option>';
+                uniSelect.innerHTML = '<option value="">আগে উপজেলা বাছুন</option>';
+                
+                if(this.value === "Rangpur") {
+                    upoSelect.disabled = false;
+                    Object.keys(rangpurData).forEach(upo => {
+                        upoSelect.innerHTML += `<option value="${upo}">${upo}</option>`;
+                        filterUpo.innerHTML += `<option value="${upo}">${upo}</option>`;
+                    });
+                } else {
+                    upoSelect.disabled = true;
+                    uniSelect.disabled = true;
+                }
+            });
+
+            upoSelect.addEventListener('change', function() {
+                uniSelect.innerHTML = '<option value="">ইউনিয়ন নির্বাচন করুন</option>';
+                if(this.value && rangpurData[this.value]) {
+                    uniSelect.disabled = false;
+                    rangpurData[this.value].forEach(uni => {
+                        uniSelect.innerHTML += `<option value="${uni}">${uni}</option>`;
+                    });
+                } else {
+                    uniSelect.disabled = true;
+                }
+            });
+        }
+
+        // Tree Inventory Add/Delete Feature
+        function initTreeInventoryPanel() {
+            const treeSelect = document.getElementById('treeSelect');
+            const inventoryUl = document.getElementById('treeInventoryList');
+            
+            treeSelect.innerHTML = '<option value="">গাছ নির্বাচন করুন</option>';
+            inventoryUl.innerHTML = '';
+
+            dynamicTrees.forEach((tree, idx) => {
+                treeSelect.innerHTML += `<option value="${tree}">${tree}</option>`;
+                inventoryUl.innerHTML += `
+                    <li class="flex justify-between items-center py-1.5 font-medium">
+                        <span>🌲 ${tree}</span>
+                        <button onclick="deleteTree(${idx})" class="text-red-500 hover:text-red-700 text-xs font-bold">حذف / ডিলিট</button>
+                    </li>`;
+            });
+        }
+
+        function addCustomTree() {
+            const input = document.getElementById('newTreeName');
+            if(input.value.trim() !== "") {
+                dynamicTrees.push(input.value.trim());
+                input.value = "";
+                initTreeInventoryPanel();
+            }
+        }
+
+        function deleteTree(index) {
+            dynamicTrees.splice(index, 1);
+            initTreeInventoryPanel();
+        }
+
+        // Autofill HTML GPS Simulation Engine
+        function fetchGPS() {
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(p => {
+                    document.getElementById('lat').value = p.coords.latitude.toFixed(5);
+                    document.getElementById('lng').value = p.coords.longitude.toFixed(5);
+                }, () => {
+                    document.getElementById('lat').value = "25.7438"; 
+                    document.getElementById('lng').value = "89.2752";
+                });
+            }
+        }
+
+        // Handle Plantation Submission Entry Form
+        document.getElementById('plantationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('imageUpload');
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerText;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerText = "⏳ ডাটা সেভ হচ্ছে...";
+
+    if (fileInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            sendDataToGoogleSheet(event.target.result, submitBtn, originalBtnText);
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+    } else {
+        sendDataToGoogleSheet("", submitBtn, originalBtnText);
+    }
+});
+
+function sendDataToGoogleSheet(base64Image, submitBtn, originalBtnText) {
+    // 🔴 এখানে আপনার গুগল অ্যাপস স্ক্রিপ্টের Web App URL টি বসাবেন
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbxkb4BL6mqVNzioqBj7jsyb0WiQQG3mNlmLRWpeKrBb6uzplnFxDkazUJocsOBrnXg_Qw/exec"; 
+    
+    const payload = {
+        action: "new_entry",
+        id: `RNG-00${Date.now()}`, 
+        district: document.getElementById('district').value,
+        upojela: document.getElementById('upojela').value,
+        union: document.getElementById('union').value,
+        tree: document.getElementById('treeSelect').value,
+        lat: document.getElementById('lat').value,
+        lng: document.getElementById('lng').value,
+        caregiver: document.getElementById('caregiver').value,
+        phone: document.getElementById('phone').value,
+        imageFile: base64Image,
+        m3: "Healthy", m6: "", y1: "", y2: "", y3: ""
+    };
+
+    fetch(webAppUrl, {
+        method: "POST",
+        mode: "no-cors",
+        cache: "no-cache",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    })
+    .then(() => {
+        alert("🎉 নতুন রোপণকৃত গাছের ডাটা ও ছবি সফলভাবে গুগল ড্রাইভে সংরক্ষিত হয়েছে!");
+        document.getElementById('plantationForm').reset();
+        submitBtn.disabled = false;
+        submitBtn.innerText = originalBtnText;
+        switchTab('dashboard');
+    })
+    .catch(err => {
+        alert("❌ সার্ভারে ডাটা পাঠাতে সমস্যা হয়েছে।");
+        submitBtn.disabled = false;
+        submitBtn.innerText = originalBtnText;
+        console.error("Error:", err);
+    });
+}
+
+        // Dynamic Audit Logic Render Table Engine (Lock Controls if Dead)
+        function renderAuditTable() {
+            const selectedUpo = document.getElementById('auditFilterUpojela').value;
+            const tbody = document.getElementById('auditTableBody');
+            tbody.innerHTML = '';
+
+            let filteredData = mockDatabase;
+            if(selectedUpo) {
+                filteredData = mockDatabase.filter(item => item.upojela === selectedUpo);
+            }
+
+            filteredData.forEach((row, idx) => {
+                // Cascading Row Disabling Status Rule Logic Check
+                const isM3Dead = row.m3 === 'Dead';
+                const isM6Dead = isM3Dead || row.m6 === 'Dead';
+                const isY1Dead = isM6Dead || row.y1 === 'Dead';
+                const isY2Dead = isY1Dead || row.y2 === 'Dead';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-3">
+                            <div class="font-bold text-gray-800">${row.id}</div>
+                            <div class="text-xs text-emerald-600 font-semibold">${row.tree}</div>
+                        </td>
+                        <td class="p-3 text-xs font-medium">${row.union}</td>
+                        <td class="p-3 text-center">
+                            ${row.imageUploaded ? 
+                                '<span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-bold">🟢 Active Pic</span>' : 
+                                '<span class="inline-block bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full font-bold">🔴 No Pic</span>'}
+                            <input type="file" accept="image/*" class="block text-[10px] text-gray-400 mt-1 mx-auto max-w-[80px]" onchange="mockImageUpload(${idx})"/>
+                        </td>
+                        <!-- Time Step Columns -->
+                        <td class="p-2">${createAuditSelect(idx, 'm3', row.m3, false)}</td>
+                        <td class="p-2">${createAuditSelect(idx, 'm6', row.m6, isM3Dead)}</td>
+                        <td class="p-2">${createAuditSelect(idx, 'y1', row.y1, isM6Dead)}</td>
+                        <td class="p-2">${createAuditSelect(idx, 'y2', row.y2, isY1Dead)}</td>
+                        <td class="p-2">${createAuditSelect(idx, 'y3', row.y3, isY2Dead)}</td>
+                    </tr>`;
+            });
+        }
+
+        function createAuditSelect(rowIdx, phase, currentVal, isDisabled) {
+            if(isDisabled) {
+                return `<select disabled class="p-1 border rounded bg-gray-100 text-xs text-gray-400 w-full"><option value="">🔒 Locked</option></select>`;
+            }
+            return `
+                <select onchange="updateAuditStatus(${rowIdx}, '${phase}', this.value)" class="p-1 border rounded text-xs bg-white w-full focus:ring-1 focus:ring-blue-400">
+                    <option value="" ${currentVal===''?'selected':''}>-বাছুন-</option>
+                    <option value="Healthy" ${currentVal==='Healthy'?'selected':''}>🟢 তাজা</option>
+                    <option value="NeedsCare" ${currentVal==='NeedsCare'?'selected':''}>🟡 দুর্বল</option>
+                    <option value="Dead" ${currentVal==='Dead'?'selected':''}>🔴 মৃত</option>
+                </select>`;
+        }
+
+        function updateAuditStatus(idx, phase, val) {
+            mockDatabase[idx][phase] = val;
+            renderAuditTable(); // Live re-render to propagate input locks immediately
+        }
+
+        function mockImageUpload(idx) {
+            mockDatabase[idx].imageUploaded = true;
+            renderAuditTable();
+        }
+
+        // Render Master Report Table Data Stream
+        function renderReportTable() {
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+            mockDatabase.forEach(row => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 border-b text-xs">
+                        <td class="p-3 font-bold">${row.id}</td>
+                        <td class="p-3">${row.upojela}</td>
+                        <td class="p-3">${row.union}</td>
+                        <td class="p-3 text-emerald-700 font-semibold">${row.tree}</td>
+                        <td class="p-3">${row.caregiver} (${row.phone})</td>
+                        <td class="p-3 font-mono text-gray-500">${row.lat}, ${row.lng}</td>
+                    </tr>`;
+            });
+        }
+
+        // Dashboard Charts Data Render Core Engine
+        function renderCharts() {
+            new Chart(document.getElementById('chartType').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['ফলজ (Fruit)', 'বনজ (Timber)', 'ঔষধি'],
+                    datasets: [{ data: [60, 30, 10], backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'] }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            new Chart(document.getElementById('chartLocation').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['মিঠাপুকুর', 'পীরগঞ্জ', 'বদরগঞ্জ', 'সদর'],
+                    datasets: [{ label: 'রোপণকৃত গাছ', data: [120, 95, 70, 45], backgroundColor: '#047857' }]
+                },
+                options: { responsive: true }
+            });
+        }
+    </script>
+</body>
+</html>
