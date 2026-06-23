@@ -205,7 +205,7 @@
 
     <script>
         // 🔴 আপনার লাইভ গুগল অ্যাপস স্ক্রিপ্ট ওয়েব অ্যাপ ইউআরএল
-        const webAppUrl = "https://script.google.com/macros/s/AKfycbzX8WaEkoYtnTkTlLrDYVAuUPoDfNzw34W2HiD1ZaPt1ey3Dy1ITtHkDN61vkWT7-oyog/exec";
+        const webAppUrl = "https://script.google.com/macros/s/AKfycbzYQWugSPUAvZWIkjqDe0uLr7FTB_cIcagQhBt18RC9BhDjsJO2KEJ8zXEcv7I68MhUfQ/exec";
 
         const rangpurData = {
             "Mithapukur": ["মিঠাপুকুর সদর", "বালুয়া মাসিমপুর", "দিল্যালপুর", "দূর্গাপুর", "কাফ্রিকাল", "খোড়াগাছ", "লতিবপুর", "ময়েনপুর", "চেংমারী", "বড়বালা", "পায়রাবন্দ", "ভাঙ্গনী", "গোপালপুর", "বড়হযরতপুর", "মির্জাপুর", "ইমাদপুর", "রাণীপুকুর"],
@@ -329,40 +329,46 @@
         });
 
         function sendDataToServer(base64Image, submitBtn) {
-            const payload = {
-                action: "new_entry",
-                id: "RNG-" + Math.floor(1000 + Math.random() * 9000),
-                district: document.getElementById('district').value,
-                upojela: document.getElementById('upojela').value, // কলাম ম্যাপিং ফিক্সড
-                union: document.getElementById('union').value,
-                tree: document.getElementById('treeSelect').value,
-                lat: document.getElementById('lat').value,
-                lng: document.getElementById('lng').value,
-                caretaker: document.getElementById('caretaker').value,
-                phone: document.getElementById('phone').value,
-                imageFile: base64Image
-            };
+    const payload = {
+        action: "new_entry",
+        id: "RNG-" + Math.floor(1000 + Math.random() * 9000),
+        district: document.getElementById('district').value,
+        upojela: document.getElementById('upojela').value,
+        union: document.getElementById('union').value,
+        tree: document.getElementById('treeSelect').value,
+        lat: document.getElementById('lat').value,
+        lng: document.getElementById('lng').value,
+        caretaker: document.getElementById('caretaker').value,
+        phone: document.getElementById('phone').value,
+        imageFile: base64Image
+    };
 
-            fetch(webAppUrl, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            })
-            .then(() => {
-                alert("🎉 অভিনন্দন! ডাটা সফলভাবে গুগল শিট ও ড্রাইভে আপলোড হয়েছে।");
-                document.getElementById('plantationForm').reset();
-                switchTab('dashboard');
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                alert("ডাটা পাঠাতে সমস্যা হয়েছে। পুনরায় চেষ্টা করুন।");
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.innerText = "💾 ডাটা সেভ করুন";
-            });
+    // ✅ no-cors সরিয়ে সঠিক পদ্ধতি
+    fetch(webAppUrl, {
+        method: "POST",
+        // mode: "no-cors"  ← এটা সরিয়ে দিন
+        headers: { "Content-Type": "text/plain" }, // ✅ text/plain দিতে হবে preflight এড়াতে
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("🎉 ডাটা সফলভাবে সেভ হয়েছে!");
+            document.getElementById('plantationForm').reset();
+            switchTab('dashboard');
+        } else {
+            alert("❌ সমস্যা: " + data.message);
         }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("❌ সংযোগ সমস্যা। Console চেক করুন।");
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "💾 ডাটা সেভ করুন";
+    });
+}
 
         function renderAuditTable() {
             document.getElementById('auditTableBody').innerHTML = '<tr><td colspan="8" class="p-3 text-center text-gray-400">লাইভ ক্লাউড ডাটাবেজ সচল আছে।</td></tr>';
