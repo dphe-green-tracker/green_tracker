@@ -790,7 +790,6 @@ async function saveToSheets() {
         const CHUNK_SIZE = 30;
         const rows = db.map(r => ({ ...r, img: "" }));
         const total = Math.max(1, Math.ceil(rows.length / CHUNK_SIZE));
-
         for (let i = 0; i < total; i++) {
             const chunk = rows.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
             const params = new URLSearchParams();
@@ -798,10 +797,8 @@ async function saveToSheets() {
             params.set('chunk',       i);
             params.set('total',       total);
             params.set('masterChunk', JSON.stringify(chunk));
-            // GeoDb ও TreeInv সবসময় skip — Sheet এ আগে থেকেই আছে
-            params.set('geoDb',   'skip');
-            params.set('treeInv', 'skip');
-
+            params.set('geoDb',       'skip');
+            params.set('treeInv',     'skip');
             const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
             if (!res?.success) throw new Error('Chunk ' + i + ' ব্যর্থ: ' + res?.error);
             showSync(`☁️ সেভ হচ্ছে… (${i+1}/${total})`, 'blue');
@@ -809,11 +806,8 @@ async function saveToSheets() {
         showSync("✅ Sheets সেভ সফল!", 'green');
     } catch(e) {
         showSync("❌ সেভ ব্যর্থ: " + e.message, 'red');
-    } finally {
-        isSyncing = false;
-    }
+    } finally { isSyncing = false; }
 }
-
 async function loadFromSheets() {
     if (!APPS_SCRIPT_URL) return;
     showSync("☁️ Sheets থেকে লোড হচ্ছে…", 'orange');
@@ -849,39 +843,20 @@ async function loadFromSheets() {
 async function uploadImageToDrive(base64Data, filename) {
     if (!APPS_SCRIPT_URL) return null;
     try {
-        showSync("📸 ছবি আপলোড হচ্ছে…", 'blue');
-
-        // base64 header বাদ দাও
-        const pureBase64 = base64Data.includes(',') 
-            ? base64Data.split(',')[1] 
-            : base64Data;
-
-        // ছোট ছবি GET এ, বড় ছবি POST এ
-        if (pureBase64.length < 100000) {
-            // GET method
-            const params = new URLSearchParams();
-            params.set('action',    'uploadImage');
-            params.set('filename',  filename);
-            params.set('imageData', pureBase64);
-            const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
-            if (res?.success && res?.url) return res.url;
+        showSync("📸 ছবি Drive এ আপলোড হচ্ছে…", 'blue');
+        const pureBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+        const params = new URLSearchParams();
+        params.set('action',    'uploadImage');
+        params.set('filename',  filename);
+        params.set('imageData', pureBase64);
+        const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
+        if (res?.success && res?.url) {
+            showSync("✅ ছবি আপলোড সফল!", 'green');
+            return res.url;
         }
-
-        // POST method (বড় ছবির জন্য)
-        const res = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-                action:    'uploadImage',
-                filename:  filename,
-                imageData: base64Data
-            })
-        });
-        const data = await res.json();
-        if (data?.success && data?.url) return data.url;
         return null;
     } catch(e) {
-        console.error("Upload error:", e);
+        console.warn("Drive upload failed:", e);
         return null;
     }
 }
@@ -1044,35 +1019,35 @@ document.getElementById('plantationForm').addEventListener('submit', async funct
     const treeName = document.getElementById('treeSelect').value;
     const treeObj = treeInv.find(t => t.name === treeName);
     const imgBase64 = document.getElementById('entryStoredImg').value;
-    
+
     showSync("💾 সেভ হচ্ছে…", 'blue');
 
+    // আগে Drive এ আপলোড করো, URL পাওয়ার পরে record বানাও
     let driveImgUrl = "";
     if (imgBase64 && APPS_SCRIPT_URL) {
-        showSync("📤 Drive এ ছবি আপলোড হচ্ছে…", 'blue');
         driveImgUrl = await uploadImageToDrive(imgBase64, `DPHE_${Date.now()}.jpg`) || "";
     }
 
     const record = {
-        division: document.getElementById('entryDiv').value,
-        district:  document.getElementById('entryDist').value,
-        upojela:   document.getElementById('entryUpo').value,
-        union:     document.getElementById('entryUni').value,
-        tree:      treeName,
-        type:      treeObj ? treeObj.type : 'Fruit',
-        date:      document.getElementById('plantDate').value,
-        lat:       parseFloat(document.getElementById('lat').value),
-        lng:       parseFloat(document.getElementById('lng').value),
-        caregiver: document.getElementById('caregiver').value,
-        phone:     document.getElementById('phone').value,
-        img:       imgBase64,
-        driveImgUrl: driveImgUrl
+        division:    document.getElementById('entryDiv').value,
+        district:    document.getElementById('entryDist').value,
+        upojela:     document.getElementById('entryUpo').value,
+        union:       document.getElementById('entryUni').value,
+        tree:        treeName,
+        type:        treeObj ? treeObj.type : 'Fruit',
+        date:        document.getElementById('plantDate').value,
+        lat:         parseFloat(document.getElementById('lat').value),
+        lng:         parseFloat(document.getElementById('lng').value),
+        caregiver:   document.getElementById('caregiver').value,
+        phone:       document.getElementById('phone').value,
+        img:         imgBase64,
+        driveImgUrl: driveImgUrl   // ← Drive URL এখানে সেট হচ্ছে
     };
 
     if (rowId) {
         const idx = db.findIndex(r => r.id === rowId);
-        db[idx] = { ...db[idx], ...record };
         if (!driveImgUrl && db[idx].driveImgUrl) record.driveImgUrl = db[idx].driveImgUrl;
+        db[idx] = { ...db[idx], ...record };
     } else {
         const newId = 'DPHE-' + String(db.length + 1).padStart(4, '0');
         record.id = newId;
@@ -1086,7 +1061,7 @@ document.getElementById('plantationForm').addEventListener('submit', async funct
     showSync("✅ সেভ সফল!", 'green');
     checkReminders();
 });
-
+    
 function clearForm() {
     document.getElementById('plantationForm').reset();
     document.getElementById('editRowId').value = '';
