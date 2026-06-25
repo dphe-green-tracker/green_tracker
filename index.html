@@ -846,46 +846,42 @@ async function loadFromSheets() {
     }
 }
 
-// ছবি compress করে Drive এ GET দিয়ে আপলোড
-function compressForDrive(base64Data) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onerror = () => resolve(base64Data);
-        img.onload = function() {
-            const canvas = document.createElement('canvas');
-            let w = img.width, h = img.height;
-            const MAX = 600;
-            if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            // quality 0.5 এ compress — URL limit এর মধ্যে থাকবে
-            resolve(canvas.toDataURL('image/jpeg', 0.5));
-        };
-        img.src = base64Data;
-    });
-}
-
 async function uploadImageToDrive(base64Data, filename) {
     if (!APPS_SCRIPT_URL) return null;
     try {
-        showSync("📸 ছবি Drive এ আপলোড হচ্ছে…", 'blue');
-        // Compress করো
-        const compressed  = await compressForDrive(base64Data);
-        const pureBase64  = compressed.includes(',') ? compressed.split(',')[1] : compressed;
-        // সবসময় GET — CORS নেই, response পড়া যায়
-        const params = new URLSearchParams();
-        params.set('action',    'uploadImage');
-        params.set('filename',  filename);
-        params.set('imageData', pureBase64);
-        const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
-        if (res?.success && res?.url) {
-            showSync("✅ ছবি আপলোড সফল!", 'green');
-            return res.url;
+        showSync("📸 ছবি আপলোড হচ্ছে…", 'blue');
+
+        // base64 header বাদ দাও
+        const pureBase64 = base64Data.includes(',') 
+            ? base64Data.split(',')[1] 
+            : base64Data;
+
+        // ছোট ছবি GET এ, বড় ছবি POST এ
+        if (pureBase64.length < 100000) {
+            // GET method
+            const params = new URLSearchParams();
+            params.set('action',    'uploadImage');
+            params.set('filename',  filename);
+            params.set('imageData', pureBase64);
+            const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
+            if (res?.success && res?.url) return res.url;
         }
-        showSync("❌ Drive আপলোড ব্যর্থ: " + (res?.error || ""), 'red');
+
+        // POST method (বড় ছবির জন্য)
+        const res = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+                action:    'uploadImage',
+                filename:  filename,
+                imageData: base64Data
+            })
+        });
+        const data = await res.json();
+        if (data?.success && data?.url) return data.url;
         return null;
-    } catch(err) {
-        showSync("❌ আপলোড error: " + err.message, 'red');
+    } catch(e) {
+        console.error("Upload error:", e);
         return null;
     }
 }
@@ -1075,9 +1071,8 @@ document.getElementById('plantationForm').addEventListener('submit', async funct
 
     if (rowId) {
         const idx = db.findIndex(r => r.id === rowId);
-        // পুরনো driveImgUrl রাখো যদি নতুন না থাকে
-        if (!driveImgUrl && db[idx].driveImgUrl) record.driveImgUrl = db[idx].driveImgUrl;
         db[idx] = { ...db[idx], ...record };
+        if (!driveImgUrl && db[idx].driveImgUrl) record.driveImgUrl = db[idx].driveImgUrl;
     } else {
         const newId = 'DPHE-' + String(db.length + 1).padStart(4, '0');
         record.id = newId;
