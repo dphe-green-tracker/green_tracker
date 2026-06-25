@@ -850,35 +850,36 @@ async function uploadImageToDrive(base64Data, filename) {
     if (!APPS_SCRIPT_URL) return null;
     try {
         showSync("📸 ছবি Drive এ আপলোড হচ্ছে…", 'blue');
-
-        // ছবি আরো ছোট করো যাতে GET URL এ ধরে (~700KB base64 limit)
         let compressed = await recompressImage(base64Data, 400, 0.4);
         const pureBase64 = compressed.includes(',') ? compressed.split(',')[1] : compressed;
 
-        // সবসময় GET method — CORS সমস্যা নেই, response পড়া যায়
         const params = new URLSearchParams();
         params.set('action',    'uploadImage');
         params.set('filename',  filename);
         params.set('imageData', pureBase64);
 
-        const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
-        if (res?.success && res?.url) {
+        const url = APPS_SCRIPT_URL + '?' + params.toString();
+        const res = await fetch(url, { 
+            redirect: 'follow', 
+            signal: AbortSignal.timeout(30000) 
+        });
+        const data = JSON.parse(await res.text());
+        if (data?.success && data?.url) {
             showSync("✅ ছবি আপলোড সফল!", 'green');
-            return res.url;
+            return data.url;
         }
-        showSync("❌ Drive আপলোড ব্যর্থ", 'red');
+        showSync("❌ Drive আপলোড ব্যর্থ: " + (data?.error||""), 'red');
         return null;
     } catch(e) {
-        console.error("Upload error:", e);
         showSync("❌ আপলোড error: " + e.message, 'red');
         return null;
     }
 }
-
 // ছবি compress করার helper
 function recompressImage(base64Data, maxWidth, quality) {
     return new Promise((resolve) => {
         const img = new Image();
+        img.onerror = () => resolve(base64Data); // error হলে original দাও
         img.onload = function() {
             const canvas = document.createElement('canvas');
             let w = img.width, h = img.height;
@@ -1045,32 +1046,32 @@ function deleteTree(i) {
 // ════════════════════════════════
 document.getElementById('plantationForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const rowId = document.getElementById('editRowId').value;
+    const rowId    = document.getElementById('editRowId').value;
     const treeName = document.getElementById('treeSelect').value;
-    const treeObj = treeInv.find(t => t.name === treeName);
+    const treeObj  = treeInv.find(t => t.name === treeName);
     const imgBase64 = document.getElementById('entryStoredImg').value;
-    
+
     showSync("💾 সেভ হচ্ছে…", 'blue');
 
+    // Drive upload — fail হলেও ডাটা সেভ হবে
     let driveImgUrl = "";
     if (imgBase64 && APPS_SCRIPT_URL) {
-        showSync("📤 Drive এ ছবি আপলোড হচ্ছে…", 'blue');
         driveImgUrl = await uploadImageToDrive(imgBase64, `DPHE_${Date.now()}.jpg`) || "";
     }
 
     const record = {
-        division: document.getElementById('entryDiv').value,
-        district:  document.getElementById('entryDist').value,
-        upojela:   document.getElementById('entryUpo').value,
-        union:     document.getElementById('entryUni').value,
-        tree:      treeName,
-        type:      treeObj ? treeObj.type : 'Fruit',
-        date:      document.getElementById('plantDate').value,
-        lat:       parseFloat(document.getElementById('lat').value),
-        lng:       parseFloat(document.getElementById('lng').value),
-        caregiver: document.getElementById('caregiver').value,
-        phone:     document.getElementById('phone').value,
-        img:       imgBase64,
+        division:    document.getElementById('entryDiv').value,
+        district:    document.getElementById('entryDist').value,
+        upojela:     document.getElementById('entryUpo').value,
+        union:       document.getElementById('entryUni').value,
+        tree:        treeName,
+        type:        treeObj ? treeObj.type : 'Fruit',
+        date:        document.getElementById('plantDate').value,
+        lat:         parseFloat(document.getElementById('lat').value),
+        lng:         parseFloat(document.getElementById('lng').value),
+        caregiver:   document.getElementById('caregiver').value,
+        phone:       document.getElementById('phone').value,
+        img:         imgBase64,
         driveImgUrl: driveImgUrl
     };
 
@@ -1082,11 +1083,14 @@ document.getElementById('plantationForm').addEventListener('submit', async funct
     } else {
         const newId = 'DPHE-' + String(db.length + 1).padStart(4, '0');
         record.id = newId;
-        record.m3 = ""; record.m6 = ""; record.y1 = ""; record.y2 = ""; record.y3 = ""; record.y5 = "";
+        record.m3=""; record.m6=""; record.y1=""; record.y2=""; record.y3=""; record.y5="";
         db.push(record);
     }
 
-    persist();
+    // ডাটা আগে local এ সেভ করো
+    localStorage.setItem('dphe_master_db', JSON.stringify(db));
+    // তারপর Sheet এ পাঠাও
+    await saveToSheets();
     clearForm();
     switchTab('dashboard');
     showSync("✅ সেভ সফল!", 'green');
