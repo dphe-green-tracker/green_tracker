@@ -1312,9 +1312,10 @@ function renderMonitoringTable(useRadius) {
         const isY3 = isY2 || !row.y2 || row.y2==='Dead';
         const isY5 = isY3 || !row.y3 || row.y3==='Dead';
 
-        const imgCell = row.driveImgUrl
-            ? `<a href="${row.driveImgUrl}" target="_blank"><span class="text-xs font-bold text-emerald-600">🖼️ Drive</span></a><br>`
-            : (row.img ? `<img src="${row.img}" class="img-preview" onclick="openImgModal('${row.img}')" title="ক্লিক করুন"><br>` : `<span class="text-gray-300 text-[10px]">ছবি নেই</span><br>`);
+        const imgSrc = row.driveImgUrl || row.img || "";
+const imgCell = imgSrc
+    ? `<img src="${imgSrc}" class="img-preview" onclick="openImgModal('${imgSrc}')" title="ক্লিক করুন" onerror="this.style.display='none'" loading="lazy"><br>`
+    : `<span class="text-gray-300 text-[10px]">ছবি নেই</span><br>`;
 
         const due = getNextDuePhase(row);
         tbody.innerHTML += `
@@ -1400,9 +1401,10 @@ function filterMap(statusFilter) {
             iconSize: [16,16], iconAnchor:[8,8]
         });
 
-        const imgTag = row.driveImgUrl
-            ? `<a href="${row.driveImgUrl}" target="_blank" class="text-blue-500 underline text-xs">📷 Drive ছবি</a>`
-            : (row.img ? `<img src="${row.img}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;margin-top:4px;">` : '');
+        const imgSrc2 = row.driveImgUrl || row.img || "";
+const imgTag = imgSrc2
+    ? `<img src="${imgSrc2}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;margin-top:4px;" onerror="this.style.display='none'" loading="lazy">`
+    : '';
 
         const marker = L.marker([row.lat, row.lng], { icon })
             .bindPopup(`
