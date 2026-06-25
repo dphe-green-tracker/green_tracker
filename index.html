@@ -787,22 +787,38 @@ async function saveToSheets() {
     isSyncing = true;
     showSync("☁️ Sheets এ সেভ হচ্ছে…", 'blue');
     try {
-        const payload = {
-            action: "saveAll",
-            geoDb: geoDb,
-            treeInv: treeInv,
-            masterDb: db.map(r => ({ ...r, img: "" }))
-        };
-        await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(payload)
-        });
+        const CHUNK_SIZE = 50;
+        const rows = db.map(r => ({ ...r, img: "" }));
+        const total = Math.max(1, Math.ceil(rows.length / CHUNK_SIZE));
+
+        for (let i = 0; i < total; i++) {
+            const chunk = rows.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            const params = new URLSearchParams();
+            params.set('action', 'saveChunk');
+            params.set('chunk', i);
+            params.set('total', total);
+            params.set('masterChunk', JSON.stringify(chunk));
+
+            // শুধু প্রথম chunk এ GeoDb ও TreeInv পাঠাও
+            if (i === 0) {
+                params.set('geoDb',   JSON.stringify(geoDb));
+                params.set('treeInv', JSON.stringify(treeInv));
+            } else {
+                params.set('geoDb',   'skip');
+                params.set('treeInv', 'skip');
+            }
+
+            const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
+            if (!res?.success) throw new Error('Chunk ' + i + ' failed: ' + res?.error);
+            showSync(`☁️ সেভ হচ্ছে… (${i+1}/${total})`, 'blue');
+        }
+
         showSync("✅ Sheets সেভ সফল!", 'green');
     } catch(e) {
         showSync("❌ সেভ ব্যর্থ: " + e.message, 'red');
-    } finally { isSyncing = false; }
+    } finally {
+        isSyncing = false;
+    }
 }
 
 async function loadFromSheets() {
