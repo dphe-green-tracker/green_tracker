@@ -849,18 +849,26 @@ async function loadFromSheets() {
 async function uploadImageToDrive(base64Data, filename) {
     if (!APPS_SCRIPT_URL) return null;
     try {
-        // POST with no-cors — response opaque, Drive URL বানাই separately
-        const tempId = 'temp_' + Date.now();
-        await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({ action: "uploadImage", filename: filename, imageData: base64Data, tempId: tempId })
-        });
-        // no-cors response opaque — image গেছে বলে ধরে নিই, URL later getAll থেকে আসবে
+        showSync("📸 ছবি Drive এ আপলোড হচ্ছে…", 'blue');
+        // base64 থেকে header বাদ দাও
+        const pureBase64 = base64Data.split(',')[1];
+        const params = new URLSearchParams();
+        params.set('action',    'uploadImage');
+        params.set('filename',  filename);
+        params.set('imageData', pureBase64);
+
+        const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
+        if (res?.success && res?.url) {
+            showSync("✅ ছবি আপলোড সফল!", 'green');
+            return res.url;
+        } else {
+            showSync("❌ ছবি আপলোড ব্যর্থ", 'red');
+            return null;
+        }
+    } catch(e) {
+        showSync("❌ ছবি আপলোড error: " + e.message, 'red');
         return null;
-    } catch(e) { console.warn("Drive upload failed:", e); }
-    return null;
+    }
 }
 
 // ════════════════════════════════
