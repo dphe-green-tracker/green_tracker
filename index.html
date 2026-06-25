@@ -849,28 +849,42 @@ async function loadFromSheets() {
 async function uploadImageToDrive(base64Data, filename) {
     if (!APPS_SCRIPT_URL) return null;
     try {
-        showSync("📸 ছবি Drive এ আপলোড হচ্ছে…", 'blue');
-        // base64 থেকে header বাদ দাও
-        const pureBase64 = base64Data.split(',')[1];
-        const params = new URLSearchParams();
-        params.set('action',    'uploadImage');
-        params.set('filename',  filename);
-        params.set('imageData', pureBase64);
+        showSync("📸 ছবি আপলোড হচ্ছে…", 'blue');
 
-        const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
-        if (res?.success && res?.url) {
-            showSync("✅ ছবি আপলোড সফল!", 'green');
-            return res.url;
-        } else {
-            showSync("❌ ছবি আপলোড ব্যর্থ", 'red');
-            return null;
+        // base64 header বাদ দাও
+        const pureBase64 = base64Data.includes(',') 
+            ? base64Data.split(',')[1] 
+            : base64Data;
+
+        // ছোট ছবি GET এ, বড় ছবি POST এ
+        if (pureBase64.length < 100000) {
+            // GET method
+            const params = new URLSearchParams();
+            params.set('action',    'uploadImage');
+            params.set('filename',  filename);
+            params.set('imageData', pureBase64);
+            const res = await proxyFetch(APPS_SCRIPT_URL + '?' + params.toString());
+            if (res?.success && res?.url) return res.url;
         }
+
+        // POST method (বড় ছবির জন্য)
+        const res = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+                action:    'uploadImage',
+                filename:  filename,
+                imageData: base64Data
+            })
+        });
+        const data = await res.json();
+        if (data?.success && data?.url) return data.url;
+        return null;
     } catch(e) {
-        showSync("❌ ছবি আপলোড error: " + e.message, 'red');
+        console.error("Upload error:", e);
         return null;
     }
 }
-
 // ════════════════════════════════
 // IMAGE HANDLING
 // ════════════════════════════════
